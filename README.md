@@ -1,163 +1,150 @@
-# MCP Server (Model-Connection-PostgreSQL)
+# MCP PostgreSQL Server
 
-MCP Server is a secure and efficient tool for connecting to your company's PostgreSQL database, exploring table schemas, running read-only SQL queries, and performing common data analysis tasks.
+A Model-Controller-Provider (MCP) server that:
+- Connects to a PostgreSQL database
+- Exposes table schemas as resources
+- Provides tools for running read-only SQL queries
+- Includes prompts for common data analysis tasks
 
 ## Features
 
-- **PostgreSQL Database Connection**: Securely connect to your company's PostgreSQL database
-- **Schema Explorer**: Browse database schemas and tables with detailed metadata
-- **Table Schema Exposure**: View detailed information about tables, columns, relationships, and sample data
-- **Read-Only SQL Queries**: Execute safe, read-only SQL queries against your database
-- **Analysis Prompts**: Pre-built query templates for common data analysis tasks
-- **Query History**: Keep track of your previously executed queries
-- **Export Results**: Export query results to CSV files
+- **Schema Exploration**: Browse database schemas, tables, and columns
+- **Read-only Query Execution**: Safely run SQL queries against your database
+- **Data Analysis Prompts**: Pre-built SQL templates for common analysis tasks
+- **Data Visualization**: Generate data for visualization
+- **Relationship Exploration**: Visualize table relationships and foreign keys
+- **API Documentation**: Auto-generated OpenAPI specification
 
-## Installation and Setup
+## Architecture
 
-### Prerequisites
+This application follows the Model-Controller-Provider (MCP) pattern:
 
-- Node.js >= 16.0.0
-- npm or yarn
-- PostgreSQL database
-
-### Installation
-
-1. Clone the repository or extract the files to your local machine
-
-2. Install dependencies:
-   ```bash
-   npm install
-   # or
-   yarn install
-   ```
-
-3. Create a `.env` file based on the provided `.env.example`:
-   ```
-   # PostgreSQL Database Configuration
-   DB_USER=your_database_username
-   DB_PASSWORD=your_database_password
-   DB_HOST=your_database_host
-   DB_NAME=your_database_name
-   DB_PORT=5432
-   DB_SSL=false
-
-   # Server Configuration
-   PORT=3000
-   NODE_ENV=development
-
-   # Security
-   SESSION_SECRET=your_secure_random_string
-   ```
-
-4. Start the server:
-   ```bash
-   npm start
-   # or
-   yarn start
-   ```
-
-5. For development with auto-restart:
-   ```bash
-   npm run dev
-   # or
-   yarn dev
-   ```
-
-6. Open your browser and navigate to `http://localhost:3000`
-
-## Usage
-
-### Database Explorer
-
-The Database Explorer provides a tree view of all available schemas and tables in your database. You can:
-
-1. Click on a schema to expand/collapse it and view its tables
-2. Click on a table to view its details, including:
-   - Overview information (schema, table name, estimated row count)
-   - Column definitions (names, data types, constraints)
-   - Relationships (foreign keys)
-   - Indexes
-   - Sample data (first 5 rows)
-
-### SQL Query Tool
-
-The SQL Query tool allows you to write and execute SQL queries against your database:
-
-1. Write your SQL query in the editor
-2. Click "Execute Query" to run it
-3. View the results in the table below
-4. Export results to CSV if needed
-5. Save frequently used queries for later use
-
-Note: Only read-only queries (SELECT statements) are allowed for security reasons.
-
-### Analysis Prompts
-
-The Analysis Prompts section provides pre-built query templates for common data analysis tasks:
-
-1. Select a prompt template from the available options
-2. Fill in the required parameters (schema, table, columns, etc.)
-3. Preview the generated SQL query
-4. Use the query in the SQL Query Tool
-5. Execute the query to see the results
-
-Available analysis types include:
-- Basic data overview (counts, min/max, averages)
-- Missing values analysis
-- Categorical data distribution
-- Time series analysis
-- Correlation analysis
-- Group by analysis
-- Outlier detection
-- Recent changes analysis
-- Pivot table analysis
-- Retention analysis
+- **Model Layer**: Direct interaction with the database
+- **Provider Layer**: Business logic and data processing
+- **Controller Layer**: API endpoints and request handling
 
 ## Security Features
 
-- **Read-Only Queries**: Only SELECT statements are allowed to prevent data modification
-- **Query Validation**: SQL queries are validated on the server side before execution
-- **Query Timeout**: Long-running queries are automatically terminated after 30 seconds
-- **Helmet Security**: HTTP headers are configured for improved security
-- **Environment Variables**: Sensitive configuration is stored in environment variables
-- **SSL Support**: Optional SSL connection to the database
+- Read-only query validation
+- SQL injection protection
+- Rate limiting
+- Parameterized queries
+- Authentication support
+- CORS configuration
+
+## Installation
+
+1. Clone the repository:
+   ```
+   git clone <repository-url>
+   cd mcp-postgres-server
+   ```
+
+2. Install dependencies:
+   ```
+   npm install
+   ```
+
+3. Create a `.env` file based on the `.env.template`:
+   ```
+   cp .env.template .env
+   ```
+
+4. Update the `.env` file with your PostgreSQL database credentials.
+
+5. Start the server:
+   ```
+   npm start
+   ```
+
+## Configuration
+
+All configuration is managed through environment variables:
+
+- **Server**: Port, environment, CORS settings
+- **Database**: Connection details, pool settings
+- **Security**: JWT settings, rate limiting
+- **Query**: Execution limits, result size limits
 
 ## API Endpoints
 
-The MCP Server provides the following API endpoints:
+### Schema Endpoints
 
-- `GET /api/schemas`: Get a list of all database schemas
-- `GET /api/schemas/:schema/tables`: Get a list of tables in a specific schema
-- `GET /api/schemas/:schema/tables/:table`: Get detailed information about a specific table
-- `POST /api/query`: Execute a read-only SQL query
-- `GET /api/prompts`: Get a list of available analysis prompt templates
+- `GET /api/schemas` - List all schemas
+- `GET /api/schemas/:schema/tables` - List tables in a schema
+- `GET /api/schemas/:schema/tables/:table` - Get table schema details
+- `GET /api/schemas/:schema/relationships` - Get table relationships
+- `GET /api/structure` - Get complete database structure
+- `GET /api/search?q=term` - Search tables and columns
 
-## Extending the Analysis Prompts
+### Query Endpoints
 
-You can add your own analysis prompts by editing the `prompts.json` file. Each prompt should include:
+- `POST /api/query` - Execute a SQL query
+- `POST /api/query/explain` - Get query execution plan
+- `GET /api/schemas/:schema/tables/:table/sample` - Get sample data
+- `GET /api/schemas/:schema/tables/:table/stats` - Get table statistics
 
-- `id`: Unique identifier for the prompt
-- `name`: Display name
-- `description`: Brief description of what the analysis does
-- `template`: SQL query template with parameter placeholders
+### Analysis Prompt Endpoints
 
-Parameter placeholders use the format `{parameter_name}` or `{parameter_name:option1,option2}` for parameters with predefined options.
+- `GET /api/prompts` - List analysis prompt templates
+- `GET /api/prompts/:templateId` - Get prompt template details
+- `POST /api/prompts/:templateId/generate` - Generate SQL from template
+- `GET /api/schemas/:schema/tables/:table/analysis/suggest` - Get analysis suggestions
 
-## Troubleshooting
+## Example Queries
 
-### Database Connection Issues
+### Basic Table Query
 
-- Verify your database credentials in the `.env` file
-- Ensure your database server is running and accessible from the server
-- Check if the database user has sufficient privileges
+```javascript
+// API request
+fetch('/api/query', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    sql: 'SELECT * FROM users LIMIT 10'
+  })
+})
+.then(response => response.json())
+.then(data => console.log(data));
+```
 
-### Query Execution Problems
+### Using Analysis Prompts
 
-- Only read-only queries (SELECT statements) are allowed
-- Check for syntax errors in your SQL query
-- Consider simplifying complex queries or adding appropriate filters
-- Long-running queries may time out after 30 seconds
+```javascript
+// Get suggested analysis for a table
+fetch('/api/schemas/public/tables/orders/analysis/suggest')
+.then(response => response.json())
+.then(suggestions => {
+  // Use a suggestion
+  const suggestionId = suggestions.data[0].templateId;
+  const params = suggestions.data[0].params;
+  
+  // Generate SQL from the template
+  return fetch(`/api/prompts/${suggestionId}/generate`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ params })
+  });
+})
+.then(response => response.json())
+.then(data => {
+  // Execute the generated SQL
+  return fetch('/api/query', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ sql: data.data.sql })
+  });
+})
+.then(response => response.json())
+.then(results => console.log(results));
+```
+
+## Development
+
+- Run in development mode: `npm run dev`
+- Run tests: `npm test`
+- Lint code: `npm run lint`
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+MIT
