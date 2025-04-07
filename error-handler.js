@@ -102,47 +102,80 @@ function handleDatabaseError(err) {
   );
 }
 
-/**
- * Express error handler middleware
- */
-function errorHandlerMiddleware(err, req, res, next) {
-  console.error('Error:', err);
+const errorTypes = {
+  DATABASE_ERROR: 'DATABASE_ERROR',
+  VALIDATION_ERROR: 'VALIDATION_ERROR',
+  AUTHENTICATION_ERROR: 'AUTHENTICATION_ERROR',
+  AUTHORIZATION_ERROR: 'AUTHORIZATION_ERROR',
+  RATE_LIMIT_ERROR: 'RATE_LIMIT_ERROR',
+  QUERY_EXECUTION_ERROR: 'QUERY_EXECUTION_ERROR',
+  SCHEMA_ERROR: 'SCHEMA_ERROR',
+  PROMPT_ERROR: 'PROMPT_ERROR',
+  INTERNAL_SERVER_ERROR: 'INTERNAL_SERVER_ERROR'
+};
+
+class CustomError extends Error {
+  constructor(message, type, statusCode = 500, details = {}) {
+    super(message);
+    this.type = type;
+    this.statusCode = statusCode;
+    this.details = details;
+    this.timestamp = new Date().toISOString();
+  }
+}
+
+const errorHandlerMiddleware = (err, req, res, next) => {
+  const logger = require('./logger');
   
-  // If it's already one of our ApiError instances
-  if (err instanceof ApiError) {
+  // Log the error with additional context
+  logger.error('Error occurred', {
+    error: {
+      message: err.message,
+      type: err.type || errorTypes.INTERNAL_SERVER_ERROR,
+      stack: process.env.NODE_ENV === 'development' ? err.stack : undefined,
+      details: err.details || {},
+      path: req.path,
+      method: req.method,
+      userAgent: req.get('user-agent'),
+      ip: req.ip
+    }
+  });
+
+  // Handle specific error types
+  if (err instanceof CustomError) {
     return res.status(err.statusCode).json({
       success: false,
       error: {
-        code: err.code,
+        code: err.type,
         message: err.message,
-        ...(err.details && { details: err.details })
+        details: err.details,
+        timestamp: err.timestamp
       }
     });
   }
-  
-  // Handle database-specific errors
-  if (err.code && /^[0-9A-Z]{5}$/.test(err.code)) {
-    const apiError = handleDatabaseError(err);
-    return res.status(apiError.statusCode).json({
+
+  // Handle database errors
+  if (err.code && err.code.startsWith('28')) {
+    return res.status(503).json({
       success: false,
       error: {
-        code: apiError.code,
-        message: apiError.message,
-        ...(apiError.details && { details: apiError.details })
+        code: errorTypes.DATABASE_ERROR,
+        message: 'Database service unavailable',
+        timestamp: new Date().toISOString()
       }
     });
   }
-  
-  // Default to 500 server error for unhandled cases
-  return res.status(500).json({
+
+  // Default error response
+  res.status(500).json({
     success: false,
     error: {
-      code: 'INTERNAL_SERVER_ERROR',
-      message: 'An unexpected error occurred',
-      ...(process.env.NODE_ENV === 'development' && { details: err.message })
+      code: errorTypes.INTERNAL_SERVER_ERROR,
+      message: process.env.NODE_ENV === 'development' ? err.message : 'Internal server error',
+      timestamp: new Date().toISOString()
     }
   });
-}
+};
 
 module.exports = {
   ApiError,
@@ -153,5 +186,7 @@ module.exports = {
   AuthenticationError,
   RateLimitError,
   handleDatabaseError,
-  errorHandlerMiddleware
+  errorHandlerMiddleware,
+  CustomError,
+  errorTypes
 };
