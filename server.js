@@ -9,6 +9,7 @@ const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const compression = require('compression');
 const config = require('./config');
+const logger = require('./logger');
 const { errorHandlerMiddleware } = require('./error-handler');
 const dbConnector = require('./db-connector');
 
@@ -25,8 +26,22 @@ app.use(helmet());
 app.use(cors(config.server.cors));
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true }));
-app.use(morgan(config.server.env === 'development' ? 'dev' : 'combined'));
+app.use(morgan('combined', { stream: logger.stream }));
 app.use(compression());
+
+// Request validation middleware
+app.use((req, res, next) => {
+  if (req.method === 'POST' && !req.is('application/json')) {
+    return res.status(415).json({
+      success: false,
+      error: {
+        code: 'UNSUPPORTED_MEDIA_TYPE',
+        message: 'Content-Type must be application/json'
+      }
+    });
+  }
+  next();
+});
 
 // Rate limiting
 const limiter = rateLimit({
@@ -96,30 +111,34 @@ app.use((req, res, next) => {
 // Global error handler
 app.use(errorHandlerMiddleware);
 
-// Start the server
-const PORT = config.server.port;
-const server = app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-  console.log(`Environment: ${config.server.env}`);
-});
+// Initialize database connection and start server
+async function startServer() {
+  try {
+    await dbConnector.initialize();
+    const PORT = config.server.port;
+    const server = app.listen(PORT, () => {
+      logger.info(`Server running on port ${PORT}`);
+      logger.info(`Environment: ${config.server.env}`);
+    });
 
-// Graceful shutdown
-process.on('SIGTERM', async () => {
-  console.log('SIGTERM received, shutting down gracefully');
-  server.close(async () => {
-    console.log('HTTP server closed');
-    await dbConnector.end();
-    process.exit(0);
-  });
-});
+    // Graceful shutdown
+    const shutdown = async (signal) => {
+      logger.info(`${signal} received, shutting down gracefully`);
+      server.close(async () => {
+        logger.info('HTTP server closed');
+        await dbConnector.end();
+        process.exit(0);
+      });
+    };
 
-process.on('SIGINT', async () => {
-  console.log('SIGINT received, shutting down gracefully');
-  server.close(async () => {
-    console.log('HTTP server closed');
-    await dbConnector.end();
-    process.exit(0);
-  });
-});
+    process.on('SIGTERM', () => shutdown('SIGTERM'));
+    process.on('SIGINT', () => shutdown('SIGINT'));
+  } catch (error) {
+    logger.error('Failed to start server', { error });
+    process.exit(1);
+  }
+}
+
+startServer();
 
 module.exports = app;
