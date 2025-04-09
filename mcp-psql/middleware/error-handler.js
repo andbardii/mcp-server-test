@@ -72,6 +72,15 @@ class RateLimitError extends ApiError {
 }
 
 /**
+ * AI-related errors
+ */
+class AIError extends ApiError {
+  constructor(message, details = null) {
+    super(message, 500, 'AI_ERROR', details);
+  }
+}
+
+/**
  * Convert database errors to ApiError instances
  * @param {Error} err - Original database error
  * @returns {ApiError} Standardized API error
@@ -177,6 +186,67 @@ const errorHandlerMiddleware = (err, req, res, next) => {
   });
 };
 
+// Helper functions for error suggestions
+function getValidationErrorSuggestions(err) {
+  return {
+    possibleCauses: [
+      'Invalid SQL syntax',
+      'Missing required parameters',
+      'Type mismatch in parameters'
+    ],
+    recommendedActions: [
+      'Check SQL syntax',
+      'Verify parameter types',
+      'Review required parameters'
+    ]
+  };
+}
+
+function getDatabaseErrorSuggestions(err) {
+  return {
+    possibleCauses: [
+      'Database connection issue',
+      'Query timeout',
+      'Resource constraints'
+    ],
+    recommendedActions: [
+      'Check database connection',
+      'Optimize query performance',
+      'Review resource limits'
+    ]
+  };
+}
+
+function getAIErrorSuggestions(err) {
+  return {
+    possibleCauses: [
+      'AI model error',
+      'Context misunderstanding',
+      'Resource limitations'
+    ],
+    recommendedActions: [
+      'Simplify the request',
+      'Provide more context',
+      'Check AI service status'
+    ]
+  };
+}
+
+function getNotFoundErrorSuggestions(err) {
+  return {
+    possibleCauses: [
+      'Resource does not exist',
+      'Incorrect path or identifier',
+      'Access restrictions'
+    ],
+    recommendedActions: [
+      'Verify resource identifier',
+      'Check access permissions',
+      'Review API documentation'
+    ]
+  };
+}
+
 module.exports = {
   ApiError,
   DatabaseError,
@@ -188,5 +258,6 @@ module.exports = {
   handleDatabaseError,
   errorHandlerMiddleware,
   CustomError,
-  errorTypes
+  errorTypes,
+  AIError
 };

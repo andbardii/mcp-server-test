@@ -6,6 +6,8 @@ const express = require('express');
 const router = express.Router();
 const schemaProvider = require('./schema-provider');
 const { ValidationError, NotFoundError } = require('./error-handler');
+const SchemaProvider = require('../providers/schema-provider');
+const { logAIInteraction } = require('../utils/logger');
 
 /**
  * Get all schemas
@@ -13,6 +15,16 @@ const { ValidationError, NotFoundError } = require('./error-handler');
  */
 router.get('/schemas', async (req, res, next) => {
   try {
+    const { aiContext = {} } = req.query;
+    
+    // Log AI interaction if present
+    if (aiContext.source === 'ai') {
+      await logAIInteraction({
+        type: 'schema_list',
+        context: aiContext
+      });
+    }
+
     const schemas = await schemaProvider.getSchemas();
     res.json({
       success: true,
@@ -30,6 +42,17 @@ router.get('/schemas', async (req, res, next) => {
 router.get('/schemas/:schema/tables', async (req, res, next) => {
   try {
     const { schema } = req.params;
+    const { aiContext = {} } = req.query;
+    
+    // Log AI interaction if present
+    if (aiContext.source === 'ai') {
+      await logAIInteraction({
+        type: 'table_list',
+        schema,
+        context: aiContext
+      });
+    }
+
     const tables = await schemaProvider.getTables(schema);
     res.json({
       success: true,
@@ -64,6 +87,18 @@ router.get('/schemas/:schema/views', async (req, res, next) => {
 router.get('/schemas/:schema/tables/:table', async (req, res, next) => {
   try {
     const { schema, table } = req.params;
+    const { aiContext = {} } = req.query;
+    
+    // Log AI interaction if present
+    if (aiContext.source === 'ai') {
+      await logAIInteraction({
+        type: 'table_details',
+        schema,
+        table,
+        context: aiContext
+      });
+    }
+
     const tableSchema = await schemaProvider.getTableSchema(table, schema);
     res.json({
       success: true,
@@ -100,6 +135,17 @@ router.get('/structure', async (req, res, next) => {
 router.get('/schemas/:schema/relationships', async (req, res, next) => {
   try {
     const { schema } = req.params;
+    const { aiContext = {} } = req.query;
+    
+    // Log AI interaction if present
+    if (aiContext.source === 'ai') {
+      await logAIInteraction({
+        type: 'relationship_analysis',
+        schema,
+        context: aiContext
+      });
+    }
+
     const relationships = await schemaProvider.getRelationships(schema);
     res.json({
       success: true,
@@ -143,4 +189,73 @@ router.get('/openapi', async (req, res, next) => {
   }
 });
 
-module.exports = router;
+class SchemaController {
+  constructor() {
+    this.schemaProvider = new SchemaProvider();
+  }
+
+  async analyzeSchema(req, res, next) {
+    try {
+      const { schema } = req.params;
+      const { aiContext = {} } = req.query;
+      
+      // Log AI interaction if present
+      if (aiContext.source === 'ai') {
+        await logAIInteraction({
+          type: 'schema_analysis',
+          schema,
+          context: aiContext
+        });
+      }
+
+      const analysis = await this.schemaProvider.analyzeSchema(schema);
+      res.json(analysis);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async searchSchema(req, res, next) {
+    try {
+      const { q: searchTerm } = req.query;
+      const { aiContext = {} } = req.query;
+      
+      // Log AI interaction if present
+      if (aiContext.source === 'ai') {
+        await logAIInteraction({
+          type: 'schema_search',
+          searchTerm,
+          context: aiContext
+        });
+      }
+
+      const results = await this.schemaProvider.searchSchema(searchTerm);
+      res.json(results);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async getSchemaStatistics(req, res, next) {
+    try {
+      const { schema } = req.params;
+      const { aiContext = {} } = req.query;
+      
+      // Log AI interaction if present
+      if (aiContext.source === 'ai') {
+        await logAIInteraction({
+          type: 'schema_statistics',
+          schema,
+          context: aiContext
+        });
+      }
+
+      const statistics = await this.schemaProvider.getSchemaStatistics(schema);
+      res.json(statistics);
+    } catch (error) {
+      next(error);
+    }
+  }
+}
+
+module.exports = new SchemaController();

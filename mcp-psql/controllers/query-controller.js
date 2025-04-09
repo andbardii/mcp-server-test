@@ -7,6 +7,7 @@ const router = express.Router();
 const queryProvider = require('./query-provider');
 const queryValidator = require('./query-validator');
 const { ValidationError } = require('./error-handler');
+const { logAIInteraction } = require('../utils/logger');
 
 /**
  * Execute a SQL query
@@ -15,7 +16,7 @@ const { ValidationError } = require('./error-handler');
  */
 router.post('/query', async (req, res, next) => {
   try {
-    const { sql, params = [] } = req.body;
+    const { sql, params = {}, aiContext = {} } = req.body;
     
     if (!sql) {
       throw new ValidationError('SQL query is required');
@@ -27,6 +28,16 @@ router.post('/query', async (req, res, next) => {
       throw new ValidationError('Invalid SQL query', validation.errors);
     }
     
+    // Log AI interaction if present
+    if (aiContext.source === 'ai') {
+      await logAIInteraction({
+        type: 'query_execution',
+        query: sql,
+        params,
+        context: aiContext
+      });
+    }
+    
     // Analyze query complexity
     const complexityAnalysis = queryValidator.analyzeQueryComplexity(sql);
     
@@ -36,6 +47,11 @@ router.post('/query', async (req, res, next) => {
     // Add complexity warnings if any
     if (complexityAnalysis.isComplex) {
       result.warnings = complexityAnalysis.warnings;
+    }
+    
+    // Format results for AI if requested
+    if (aiContext.format === 'ai') {
+      result.formatted = formatResultsForAI(result);
     }
     
     res.json({
@@ -54,7 +70,7 @@ router.post('/query', async (req, res, next) => {
  */
 router.post('/query/explain', async (req, res, next) => {
   try {
-    const { sql, params = [] } = req.body;
+    const { sql, params = {}, aiContext = {} } = req.body;
     
     if (!sql) {
       throw new ValidationError('SQL query is required');
@@ -64,6 +80,16 @@ router.post('/query/explain', async (req, res, next) => {
     const validation = queryValidator.validateQuery(sql);
     if (!validation.isValid) {
       throw new ValidationError('Invalid SQL query', validation.errors);
+    }
+    
+    // Log AI interaction if present
+    if (aiContext.source === 'ai') {
+      await logAIInteraction({
+        type: 'query_explanation',
+        query: sql,
+        params,
+        context: aiContext
+      });
     }
     
     // Get query explanation
@@ -218,5 +244,35 @@ router.get('/generate-join', async (req, res, next) => {
     next(error);
   }
 });
+
+function formatResultsForAI(results) {
+  return {
+    columns: results.columns,
+    rowCount: results.rows.length,
+    sampleData: results.rows.slice(0, 5),
+    summary: generateDataSummary(results),
+    suggestions: generateAnalysisSuggestions(results)
+  };
+}
+
+function generateDataSummary(results) {
+  // Generate statistical summary of the data
+  return {
+    numericColumns: analyzeNumericColumns(results),
+    categoricalColumns: analyzeCategoricalColumns(results),
+    missingValues: analyzeMissingValues(results)
+  };
+}
+
+function generateAnalysisSuggestions(results) {
+  // Generate suggestions for further analysis
+  return {
+    potentialInsights: identifyPotentialInsights(results),
+    recommendedVisualizations: suggestVisualizations(results),
+    followUpQueries: suggestFollowUpQueries(results)
+  };
+}
+
+// ... existing helper methods ...
 
 module.exports = router;
