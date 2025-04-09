@@ -8,15 +8,13 @@ const morgan = require('morgan');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const compression = require('compression');
-const config = require('./config');
-const logger = require('./logger');
-const { errorHandlerMiddleware } = require('./error-handler');
-const dbConnector = require('./db-connector');
+const config = require('./config/config');
+const logger = require('./utils/logger');
+const { errorHandlerMiddleware } = require('./middleware/error-handler');
+const dbConnector = require('./models/db-connector');
 
-// Import controllers
-const schemaController = require('./schema-controller');
-const queryController = require('./query-controller');
-const promptController = require('./prompt-controller');
+// Import routes
+const apiRoutes = require('./routes');
 
 // Create Express app
 const app = express();
@@ -60,9 +58,7 @@ const limiter = rateLimit({
 app.use(limiter);
 
 // API routes
-app.use('/api', schemaController);
-app.use('/api', queryController);
-app.use('/api', promptController);
+app.use(apiRoutes);
 
 // Home route with API information
 app.get('/', (req, res) => {
