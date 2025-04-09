@@ -1,14 +1,24 @@
 import { chromium } from 'playwright';
 import { SECURITY_CONFIG } from '../config/security.js';
+import { EventEmitter } from 'events';
 
-export class BrowserController {
+export class BrowserController extends EventEmitter {
   constructor() {
+    super();
     this.browser = null;
     this.context = null;
     this.page = null;
-    this.screenshots = new Map(); // Store screenshots in memory
+    this.screenshots = new Map();
     this.lastActivityTime = Date.now();
     this.sessionStartTime = null;
+    this.performanceMetrics = {
+      navigationTime: [],
+      scriptExecutionTime: [],
+      screenshotTime: []
+    };
+    this.retryAttempts = 3;
+    this.retryDelay = 1000;
+    this.isClosing = false;
   }
 
   async launch(options = {}) {
@@ -16,51 +26,62 @@ export class BrowserController {
       throw new Error('Browser is already running');
     }
 
-    // Apply security settings
-    const securityOptions = {
-      headless: false,
-      channel: 'chrome',
-      args: [
-        '--start-maximized',
-        '--disable-plugins',
-        '--disable-extensions',
-        '--disable-popup-blocking',
-        '--disable-notifications',
-        '--disable-geolocation',
-        '--disable-web-security=false',
-        '--ignore-certificate-errors=false'
-      ],
-      ...options
-    };
+    try {
+      // Apply security settings
+      const securityOptions = {
+        headless: false,
+        channel: 'chrome',
+        args: [
+          '--start-maximized',
+          '--disable-plugins',
+          '--disable-extensions',
+          '--disable-popup-blocking',
+          '--disable-notifications',
+          '--disable-geolocation',
+          '--disable-web-security=false',
+          '--ignore-certificate-errors=false'
+        ],
+        ...options
+      };
 
-    // Apply browser security settings
-    if (SECURITY_CONFIG.browserSecurity.disableJavaScript) {
-      securityOptions.args.push('--disable-javascript');
+      // Apply browser security settings
+      if (SECURITY_CONFIG.browserSecurity.disableJavaScript) {
+        securityOptions.args.push('--disable-javascript');
+      }
+      if (SECURITY_CONFIG.browserSecurity.disableImages) {
+        securityOptions.args.push('--disable-images');
+      }
+
+      this.browser = await chromium.launch(securityOptions);
+      this.emit('browserLaunched');
+
+      this.context = await this.browser.newContext({
+        viewport: null,
+        userAgent: SECURITY_CONFIG.browserSecurity.userAgent,
+        recordVideo: {
+          dir: './videos/',
+          size: { width: 1280, height: 720 }
+        },
+        ignoreHTTPSErrors: SECURITY_CONFIG.browserSecurity.ignoreHTTPSErrors
+      });
+
+      this.page = await this.context.newPage();
+      this.sessionStartTime = Date.now();
+      
+      // Set up security event listeners
+      this.setupSecurityListeners();
+      
+      // Start session timeout check
+      this.startSessionTimeoutCheck();
+
+      // Set up performance monitoring
+      this.setupPerformanceMonitoring();
+
+      return true;
+    } catch (error) {
+      this.emit('error', error);
+      throw new Error(`Failed to launch browser: ${error.message}`);
     }
-    if (SECURITY_CONFIG.browserSecurity.disableImages) {
-      securityOptions.args.push('--disable-images');
-    }
-
-    this.browser = await chromium.launch(securityOptions);
-
-    this.context = await this.browser.newContext({
-      viewport: null,
-      userAgent: SECURITY_CONFIG.browserSecurity.userAgent,
-      recordVideo: {
-        dir: './videos/',
-        size: { width: 1280, height: 720 }
-      },
-      ignoreHTTPSErrors: SECURITY_CONFIG.browserSecurity.ignoreHTTPSErrors
-    });
-
-    this.page = await this.context.newPage();
-    this.sessionStartTime = Date.now();
-    
-    // Set up security event listeners
-    this.setupSecurityListeners();
-    
-    // Start session timeout check
-    this.startSessionTimeoutCheck();
   }
 
   setupSecurityListeners() {
@@ -123,6 +144,40 @@ export class BrowserController {
     }, 60000); // Check every minute
   }
 
+  setupPerformanceMonitoring() {
+    // Monitor page load performance
+    this.page.on('load', () => {
+      const loadTime = Date.now() - this.lastActivityTime;
+      this.performanceMetrics.navigationTime.push(loadTime);
+      this.emit('performanceMetric', { type: 'navigation', time: loadTime });
+    });
+
+    // Monitor resource usage
+    setInterval(() => {
+      if (this.browser) {
+        this.emit('resourceUsage', {
+          screenshots: this.screenshots.size,
+          sessionDuration: Date.now() - this.sessionStartTime
+        });
+      }
+    }, 60000);
+  }
+
+  async retryOperation(operation, ...args) {
+    let lastError;
+    for (let attempt = 1; attempt <= this.retryAttempts; attempt++) {
+      try {
+        return await operation(...args);
+      } catch (error) {
+        lastError = error;
+        if (attempt < this.retryAttempts) {
+          await new Promise(resolve => setTimeout(resolve, this.retryDelay * attempt));
+        }
+      }
+    }
+    throw lastError;
+  }
+
   async navigate(url, options = {}) {
     if (!this.page) {
       throw new Error('Browser not launched');
@@ -137,12 +192,19 @@ export class BrowserController {
       throw new Error('Invalid URL format');
     }
 
-    await this.page.goto(url, { 
-      waitUntil: 'networkidle',
-      timeout: 30000,
-      ...options 
+    const startTime = Date.now();
+    await this.retryOperation(async () => {
+      await this.page.goto(url, { 
+        waitUntil: 'networkidle',
+        timeout: 30000,
+        ...options 
+      });
     });
+    
+    const navigationTime = Date.now() - startTime;
+    this.performanceMetrics.navigationTime.push(navigationTime);
     this.lastActivityTime = Date.now();
+    this.emit('navigationComplete', { url, time: navigationTime });
   }
 
   async click(selector, options = {}) {
@@ -191,14 +253,23 @@ export class BrowserController {
       throw new Error('Browser not launched');
     }
 
+    const startTime = Date.now();
     const screenshotId = Date.now().toString();
-    const screenshot = await this.page.screenshot({
-      fullPage: true,
-      ...options
+    
+    const screenshot = await this.retryOperation(async () => {
+      return await this.page.screenshot({
+        fullPage: true,
+        ...options
+      });
     });
+    
+    const screenshotTime = Date.now() - startTime;
+    this.performanceMetrics.screenshotTime.push(screenshotTime);
     
     this.screenshots.set(screenshotId, screenshot);
     this.lastActivityTime = Date.now();
+    this.emit('screenshotTaken', { id: screenshotId, time: screenshotTime });
+    
     return screenshotId;
   }
 
@@ -218,15 +289,22 @@ export class BrowserController {
       }
     }
 
-    const result = await Promise.race([
-      this.page.evaluate(script, ...args),
-      new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Script execution timeout')), 
-        SECURITY_CONFIG.maxScriptExecutionTime)
-      )
-    ]);
+    const startTime = Date.now();
+    const result = await this.retryOperation(async () => {
+      return await Promise.race([
+        this.page.evaluate(script, ...args),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Script execution timeout')), 
+          SECURITY_CONFIG.maxScriptExecutionTime)
+        )
+      ]);
+    });
 
+    const executionTime = Date.now() - startTime;
+    this.performanceMetrics.scriptExecutionTime.push(executionTime);
     this.lastActivityTime = Date.now();
+    this.emit('scriptExecuted', { time: executionTime });
+    
     return result;
   }
 
@@ -343,14 +421,47 @@ export class BrowserController {
   }
 
   async close() {
-    if (this.browser) {
-      await this.browser.close();
-      this.browser = null;
-      this.context = null;
-      this.page = null;
-      this.screenshots.clear();
-      this.sessionStartTime = null;
-      this.lastActivityTime = null;
+    if (this.isClosing) return;
+    this.isClosing = true;
+
+    try {
+      if (this.browser) {
+        await this.browser.close();
+        this.browser = null;
+        this.context = null;
+        this.page = null;
+        this.screenshots.clear();
+        this.sessionStartTime = null;
+        this.lastActivityTime = null;
+        this.emit('browserClosed');
+      }
+    } catch (error) {
+      this.emit('error', error);
+      throw new Error(`Failed to close browser: ${error.message}`);
+    } finally {
+      this.isClosing = false;
     }
+  }
+
+  getPerformanceMetrics() {
+    return {
+      navigation: {
+        average: this.calculateAverage(this.performanceMetrics.navigationTime),
+        count: this.performanceMetrics.navigationTime.length
+      },
+      scriptExecution: {
+        average: this.calculateAverage(this.performanceMetrics.scriptExecutionTime),
+        count: this.performanceMetrics.scriptExecutionTime.length
+      },
+      screenshots: {
+        average: this.calculateAverage(this.performanceMetrics.screenshotTime),
+        count: this.performanceMetrics.screenshotTime.length
+      }
+    };
+  }
+
+  calculateAverage(times) {
+    if (times.length === 0) return 0;
+    return times.reduce((a, b) => a + b, 0) / times.length;
   }
 } 
