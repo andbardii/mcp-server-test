@@ -12,13 +12,21 @@ A PostgreSQL-specific implementation that:
 - Includes pre-built analysis templates
 - Supports schema exploration and data analysis
 
+### 2. MCP Figma Server (`mcp-figma/`)
+A Figma-specific implementation that:
+- Enables AI systems to interact with Figma designs
+- Provides structured access to Figma files and components
+- Implements design analysis and manipulation capabilities
+- Supports AI-driven design suggestions and modifications
+- Includes pre-built design templates and patterns
+
 ## Purpose
 
 This repository serves as:
 - A testing ground for different MCP implementations
 - A reference for MCP pattern best practices
-- A collection of database interaction patterns
-- A showcase of AI-database integration approaches
+- A collection of database and design tool interaction patterns
+- A showcase of AI integration approaches with various systems
 
 ## Getting Started
 

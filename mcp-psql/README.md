@@ -1,10 +1,87 @@
 # MCP PostgreSQL Server
 
-A Model-Controller-Provider (MCP) server that:
+A Model-Controller-Provider (MCP) server designed for AI integration that:
 - Connects to a PostgreSQL database
 - Exposes table schemas as resources
 - Provides tools for running read-only SQL queries
 - Includes prompts for common data analysis tasks
+- Offers a clean API interface perfect for AI integration
+
+## AI Integration
+
+This server is specifically designed to be integrated with AI applications like Cursor or Claude. Here's how to integrate it:
+
+### Cursor Integration
+
+Add this configuration to your Cursor settings:
+
+```json
+{
+  "mcpServers": {
+    "postgres": {
+      "type": "postgres",
+      "baseUrl": "http://localhost:3000/api",
+      "endpoints": {
+        "schemas": "/schemas",
+        "query": "/query",
+        "explain": "/query/explain",
+        "analysis": "/prompts"
+      }
+    }
+  }
+}
+```
+
+### Claude Integration
+
+Use this command to start the server with Claude integration:
+
+```bash
+MCP_SERVER_TYPE=postgres \
+MCP_AI_INTEGRATION=claude \
+MCP_API_KEY=your_api_key \
+npm start
+```
+
+### Example AI Integration Code
+
+Here's how an AI can interact with the MCP server:
+
+```javascript
+// Example of how an AI would use the MCP server
+async function aiQueryDatabase() {
+  // 1. Get database structure
+  const schemas = await fetch('http://localhost:3000/api/schemas');
+  const schemaData = await schemas.json();
+  
+  // 2. Get analysis suggestions
+  const suggestions = await fetch('/api/schemas/public/tables/orders/analysis/suggest');
+  const suggestionData = await suggestions.json();
+  
+  // 3. Generate and execute a query
+  const query = {
+    sql: 'SELECT * FROM orders WHERE created_at > NOW() - INTERVAL \'7 days\'',
+    params: {}
+  };
+  
+  const results = await fetch('/api/query', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(query)
+  });
+  
+  return await results.json();
+}
+```
+
+### AI-Friendly Features
+
+- **Structured Schema Access**: Easy-to-parse database structure for AI analysis
+- **Query Templates**: Pre-built SQL templates that AIs can use as starting points
+- **Analysis Prompts**: Ready-to-use analysis patterns for common data tasks
+- **Safe Query Execution**: Read-only mode ensures safe AI interaction
+- **Error Handling**: Clear error messages for AI debugging
+- **Rate Limiting**: Prevents AI from overwhelming the database
 
 ## Features
 
@@ -144,7 +221,3 @@ fetch('/api/schemas/public/tables/orders/analysis/suggest')
 - Run in development mode: `npm run dev`
 - Run tests: `npm test`
 - Lint code: `npm run lint`
-
-## License
-
-MIT

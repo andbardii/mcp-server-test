@@ -6,17 +6,36 @@
     <title>MCP PostgreSQL Server GUI</title>
     <link rel="stylesheet" href="css/styles.css">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css" rel="stylesheet">
 </head>
 <body>
     <div class="container-fluid">
         <div class="row">
             <!-- Sidebar -->
             <div class="col-md-3 sidebar">
-                <h2>MCP PostgreSQL</h2>
+                <div class="sidebar-header">
+                    <h2>MCP PostgreSQL</h2>
+                    <div class="connection-status">
+                        <span class="status-indicator"></span>
+                        <span class="status-text">Connecting...</span>
+                    </div>
+                </div>
                 <div class="nav flex-column nav-pills" id="v-pills-tab" role="tablist">
-                    <button class="nav-link active" data-bs-toggle="pill" data-bs-target="#v-pills-schemas">Schemas</button>
-                    <button class="nav-link" data-bs-toggle="pill" data-bs-target="#v-pills-query">Query Editor</button>
-                    <button class="nav-link" data-bs-toggle="pill" data-bs-target="#v-pills-analysis">Analysis</button>
+                    <button class="nav-link active" data-bs-toggle="pill" data-bs-target="#v-pills-schemas">
+                        <i class="bi bi-diagram-3"></i> Schemas
+                    </button>
+                    <button class="nav-link" data-bs-toggle="pill" data-bs-target="#v-pills-query">
+                        <i class="bi bi-code-square"></i> Query Editor
+                    </button>
+                    <button class="nav-link" data-bs-toggle="pill" data-bs-target="#v-pills-analysis">
+                        <i class="bi bi-graph-up"></i> Analysis
+                    </button>
+                    <button class="nav-link" data-bs-toggle="pill" data-bs-target="#v-pills-history">
+                        <i class="bi bi-clock-history"></i> History
+                    </button>
+                    <button class="nav-link" data-bs-toggle="pill" data-bs-target="#v-pills-settings">
+                        <i class="bi bi-gear"></i> Settings
+                    </button>
                 </div>
             </div>
 
@@ -25,27 +44,68 @@
                 <div class="tab-content">
                     <!-- Schemas Tab -->
                     <div class="tab-pane fade show active" id="v-pills-schemas">
-                        <h3>Database Schemas</h3>
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h3>Database Schemas</h3>
+                            <button class="btn btn-sm btn-outline-primary" id="refresh-schemas">
+                                <i class="bi bi-arrow-clockwise"></i> Refresh
+                            </button>
+                        </div>
                         <div class="schema-list">
-                            <!-- Schema list will be populated by JavaScript -->
+                            <div class="loading-spinner">
+                                <div class="spinner-border text-primary" role="status">
+                                    <span class="visually-hidden">Loading...</span>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
                     <!-- Query Editor Tab -->
                     <div class="tab-pane fade" id="v-pills-query">
-                        <h3>Query Editor</h3>
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h3>Query Editor</h3>
+                            <div class="btn-group">
+                                <button class="btn btn-sm btn-outline-primary" id="format-query">
+                                    <i class="bi bi-code-slash"></i> Format
+                                </button>
+                                <button class="btn btn-sm btn-outline-primary" id="save-query">
+                                    <i class="bi bi-save"></i> Save
+                                </button>
+                            </div>
+                        </div>
                         <div class="query-editor">
-                            <textarea id="query-input" class="form-control" rows="5" placeholder="Enter your SQL query here..."></textarea>
-                            <button id="execute-query" class="btn btn-primary mt-2">Execute Query</button>
+                            <div class="query-toolbar">
+                                <select class="form-select form-select-sm" id="query-templates">
+                                    <option value="">Select a template...</option>
+                                    <option value="select">SELECT * FROM table</option>
+                                    <option value="count">SELECT COUNT(*) FROM table</option>
+                                    <option value="join">SELECT * FROM table1 JOIN table2</option>
+                                </select>
+                            </div>
+                            <textarea id="query-input" class="form-control" rows="10" placeholder="Enter your SQL query here..."></textarea>
+                            <div class="query-actions mt-2">
+                                <button id="execute-query" class="btn btn-primary">
+                                    <i class="bi bi-play-fill"></i> Execute
+                                </button>
+                                <button id="explain-query" class="btn btn-outline-secondary">
+                                    <i class="bi bi-info-circle"></i> Explain
+                                </button>
+                            </div>
                             <div class="query-results mt-3">
+                                <div class="results-header d-flex justify-content-between align-items-center mb-2">
+                                    <h5>Results</h5>
+                                    <div class="results-actions">
+                                        <button class="btn btn-sm btn-outline-secondary" id="export-csv">
+                                            <i class="bi bi-file-earmark-excel"></i> Export CSV
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-secondary" id="copy-results">
+                                            <i class="bi bi-clipboard"></i> Copy
+                                        </button>
+                                    </div>
+                                </div>
                                 <div class="table-responsive">
-                                    <table class="table table-striped">
-                                        <thead id="results-header">
-                                            <!-- Headers will be populated by JavaScript -->
-                                        </thead>
-                                        <tbody id="results-body">
-                                            <!-- Results will be populated by JavaScript -->
-                                        </tbody>
+                                    <table class="table table-striped table-hover">
+                                        <thead id="results-header"></thead>
+                                        <tbody id="results-body"></tbody>
                                     </table>
                                 </div>
                             </div>
@@ -59,12 +119,27 @@
                             <div class="card">
                                 <div class="card-body">
                                     <h5 class="card-title">Quick Analysis</h5>
-                                    <select id="analysis-type" class="form-select mb-2">
-                                        <option value="basic">Basic Summary</option>
-                                        <option value="distribution">Value Distribution</option>
-                                        <option value="timeseries">Time Series</option>
-                                    </select>
-                                    <button id="run-analysis" class="btn btn-primary">Run Analysis</button>
+                                    <div class="mb-3">
+                                        <label class="form-label">Analysis Type</label>
+                                        <select id="analysis-type" class="form-select">
+                                            <option value="basic">Basic Summary</option>
+                                            <option value="distribution">Value Distribution</option>
+                                            <option value="timeseries">Time Series</option>
+                                            <option value="correlation">Correlation Analysis</option>
+                                        </select>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Table</label>
+                                        <select id="analysis-table" class="form-select">
+                                            <option value="">Select a table...</option>
+                                        </select>
+                                    </div>
+                                    <div id="analysis-params" class="mb-3">
+                                        <!-- Dynamic parameters will be added here -->
+                                    </div>
+                                    <button id="run-analysis" class="btn btn-primary">
+                                        <i class="bi bi-graph-up"></i> Run Analysis
+                                    </button>
                                 </div>
                             </div>
                             <div class="analysis-results mt-3">
@@ -72,8 +147,52 @@
                             </div>
                         </div>
                     </div>
+
+                    <!-- History Tab -->
+                    <div class="tab-pane fade" id="v-pills-history">
+                        <h3>Query History</h3>
+                        <div class="history-list">
+                            <!-- History items will be added here -->
+                        </div>
+                    </div>
+
+                    <!-- Settings Tab -->
+                    <div class="tab-pane fade" id="v-pills-settings">
+                        <h3>Settings</h3>
+                        <div class="card">
+                            <div class="card-body">
+                                <h5 class="card-title">Connection Settings</h5>
+                                <form id="settings-form">
+                                    <div class="mb-3">
+                                        <label class="form-label">API Base URL</label>
+                                        <input type="text" class="form-control" id="api-url" value="http://localhost:3000/api">
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Query Timeout (ms)</label>
+                                        <input type="number" class="form-control" id="query-timeout" value="30000">
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Max Results</label>
+                                        <input type="number" class="form-control" id="max-results" value="1000">
+                                    </div>
+                                    <button type="submit" class="btn btn-primary">Save Settings</button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
+        </div>
+    </div>
+
+    <!-- Toast Notifications -->
+    <div class="toast-container position-fixed bottom-0 end-0 p-3">
+        <div id="toast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+            <div class="toast-header">
+                <strong class="me-auto">Notification</strong>
+                <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+            </div>
+            <div class="toast-body"></div>
         </div>
     </div>
 
