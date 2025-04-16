@@ -1,7 +1,7 @@
 # MCP Server Test Collection
 [![License](https://img.shields.io/badge/License-MIT-green)](https://opensource.org/licenses/MIT)
-[![Maintenance](https://img.shields.io/badge/Maintained-Yes-brightgreen)](https://github.com/OpenBrokerRemover)
-[![PRs Welcome](https://img.shields.io/badge/PRs-Welcome-brightgreen)](https://github.com/OpenBrokerRemover/pulls)
+[![Maintenance](https://img.shields.io/badge/Maintained-Yes-brightgreen)
+[![PRs Welcome](https://img.shields.io/badge/PRs-Welcome-brightgreen)]
 
 This repository contains a collection of tests and implementations for various Model-Controller-Provider (MCP) server architectures. Each implementation focuses on different aspects of MCP pattern and database interactions.
 
